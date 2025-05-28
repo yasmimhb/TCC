@@ -87,6 +87,9 @@ flutter:
     - assets/fase 0/obrigado.png
     - assets/fase 0/oi.png
     - assets/fase 0/por favor.png
+    - assets/acertou.gif
+    - assets/fim.gif
+    - assets/errou.gif
 
 
   # The following line ensures that the Material Icons font is

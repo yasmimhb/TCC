@@ -203,6 +203,8 @@ class LessonScreen extends StatefulWidget {
   final VoidCallback onCompleted;
   final VoidCallback onLifeLost;
   final int Function() getLives;
+  bool showContinueButton = false;
+  String? feedbackGifPath;
 
   LessonScreen({
     required this.phase,
@@ -220,6 +222,11 @@ class _LessonScreenState extends State<LessonScreen> {
   int currentQuestion = 0;
   int correctAnswers = 0;
   late List<QuestionItem> phaseQuestions;
+  bool? lastAnswerCorrect;
+  bool showContinueButton = false;
+  String? feedbackGifPath;
+  bool isGameOver = false;
+  bool hasPopped = false;
 
   @override
   void initState() {
@@ -228,26 +235,55 @@ class _LessonScreenState extends State<LessonScreen> {
   }
 
   void answer(bool isCorrect) {
+    if (isGameOver) return;
+
+    setState(() {
+      lastAnswerCorrect = isCorrect;
+      showContinueButton = true;
+      feedbackGifPath = isCorrect ? 'assets/acertou.gif' : 'assets/errou.gif';
+    });
+
     if (isCorrect) {
       correctAnswers++;
     } else {
+      final livesAfterLoss = widget.getLives() - 1;
       widget.onLifeLost();
-    }
 
-    if (widget.getLives() <= 1) {
-      Navigator.pop(context);
-      return;
-    }
+      if (livesAfterLoss <= 0 && !isGameOver) {
+        setState(() {
+          isGameOver = true;
+          feedbackGifPath = 'assets/fim.gif';
+          showContinueButton = false;
+        });
 
+        Future.delayed(Duration(seconds: 3), () {
+          if (mounted && !hasPopped) {
+            hasPopped = true;
+            Navigator.pop(context);
+          }
+        });
+
+        return;
+      }
+    }
+  }
+
+  void continueToNextQuestion() {
     if (currentQuestion < phaseQuestions.length - 1) {
       setState(() {
         currentQuestion++;
+        lastAnswerCorrect = null;
+        showContinueButton = false;
+        feedbackGifPath = null;
       });
     } else {
       if (correctAnswers >= 3) {
         widget.onCompleted();
       }
-      Navigator.pop(context);
+      if (mounted && !hasPopped) {
+        hasPopped = true;
+        Navigator.pop(context);
+      }
     }
   }
 
@@ -259,6 +295,7 @@ class _LessonScreenState extends State<LessonScreen> {
       appBar: AppBar(
         title: Text(widget.title),
         backgroundColor: Colors.purple,
+        leading: BackButton(),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
@@ -275,62 +312,145 @@ class _LessonScreenState extends State<LessonScreen> {
           ),
         ],
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              phaseQuestions[currentQuestion].question,
-              style: TextStyle(fontSize: 24),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 16),
-            Image.asset(
-              phaseQuestions[currentQuestion].imageAsset,
-              height: 200,
-            ),
-            SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: ElevatedButton(
-                      onPressed:
-                          () => answer(
-                            phaseQuestions[currentQuestion]
-                                    .correctAnswerIndex ==
-                                0,
+      body: Column(
+        children: [
+          Expanded(
+            child: Center(
+              child:
+                  feedbackGifPath != null
+                      ? Stack(
+                        children: [
+                          Opacity(
+                            opacity:
+                                feedbackGifPath == 'assets/logo.gif'
+                                    ? 1.0
+                                    : 0.3,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  phaseQuestions[currentQuestion].question,
+                                  style: TextStyle(fontSize: 24),
+                                  textAlign: TextAlign.center,
+                                ),
+                                SizedBox(height: 16),
+                                Image.asset(
+                                  phaseQuestions[currentQuestion].imageAsset,
+                                  height: 200,
+                                ),
+                              ],
+                            ),
                           ),
-                      child: Text(phaseQuestions[currentQuestion].answer1),
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: Size(double.infinity, 60),
+                          Center(
+                            child: Image.asset(
+                              feedbackGifPath!,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ],
+                      )
+                      : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            phaseQuestions[currentQuestion].question,
+                            style: TextStyle(fontSize: 24),
+                            textAlign: TextAlign.center,
+                          ),
+                          SizedBox(height: 16),
+                          Image.asset(
+                            phaseQuestions[currentQuestion].imageAsset,
+                            height: 200,
+                          ),
+                          SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8.0,
+                                  ),
+                                  child: ElevatedButton(
+                                    onPressed:
+                                        showContinueButton || isGameOver
+                                            ? null
+                                            : () => answer(
+                                              phaseQuestions[currentQuestion]
+                                                      .correctAnswerIndex ==
+                                                  0,
+                                            ),
+                                    child: Text(
+                                      phaseQuestions[currentQuestion].answer1,
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      minimumSize: Size(double.infinity, 60),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8.0,
+                                  ),
+                                  child: ElevatedButton(
+                                    onPressed:
+                                        showContinueButton || isGameOver
+                                            ? null
+                                            : () => answer(
+                                              phaseQuestions[currentQuestion]
+                                                      .correctAnswerIndex ==
+                                                  1,
+                                            ),
+                                    child: Text(
+                                      phaseQuestions[currentQuestion].answer2,
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      minimumSize: Size(double.infinity, 60),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ),
+            ),
+          ),
+          if (isGameOver)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 32.0),
+              child: Text(
+                'Game Over',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
+            ),
+          if (showContinueButton && !isGameOver)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16.0),
+              child: ElevatedButton(
+                onPressed: continueToNextQuestion,
+                child: Text(
+                  'Continuar',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: ElevatedButton(
-                      onPressed:
-                          () => answer(
-                            phaseQuestions[currentQuestion]
-                                    .correctAnswerIndex ==
-                                1,
-                          ),
-                      child: Text(phaseQuestions[currentQuestion].answer2),
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: Size(double.infinity, 60),
-                      ),
-                    ),
-                  ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      lastAnswerCorrect! ? Colors.green : Colors.red,
+                  minimumSize: Size(400, 70),
                 ),
-              ],
+              ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
