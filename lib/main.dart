@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import 'package:audioplayers/audioplayers.dart';
 
 void main() {
   runApp(MyApp());
@@ -13,6 +14,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   List<bool> completedPhases = List.generate(10, (index) => false);
   int lives = 5;
+  int totalScore = 0;
 
   void recoverLives(int amount) {
     setState(() {
@@ -27,9 +29,10 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
-  void completePhase(int index) {
+  void completePhase(int index, int phaseScore) {
     setState(() {
       completedPhases[index] = true;
+      totalScore += phaseScore;
     });
   }
 
@@ -42,12 +45,15 @@ class _MyAppState extends State<MyApp> {
         primarySwatch: Colors.purple,
         scaffoldBackgroundColor: Colors.blue[100],
       ),
-      home: GameScreen(
-        completedPhases: completedPhases,
-        lives: lives,
-        onPhaseCompleted: completePhase,
-        onLifeLost: loseLife,
-        onRecoverLives: recoverLives,
+      home: Scaffold(
+        body: GameScreen(
+          completedPhases: completedPhases,
+          lives: lives,
+          score: totalScore,
+          onPhaseCompleted: completePhase,
+          onLifeLost: loseLife,
+          onRecoverLives: recoverLives,
+        ),
       ),
     );
   }
@@ -57,8 +63,8 @@ const List<String> phaseTitles = [
   'Saudações',
   'Dias da Semana',
   'Meses do ano',
+  'Bebidas',
   'Frutas',
-  'Números',
   'Animais',
   'Cores',
   'Família',
@@ -69,9 +75,10 @@ const List<String> phaseTitles = [
 class GameScreen extends StatefulWidget {
   final List<bool> completedPhases;
   final int lives;
-  final Function(int) onPhaseCompleted;
+  final Function(int, int) onPhaseCompleted;
   final VoidCallback onLifeLost;
   final Function(int) onRecoverLives;
+  final int score;
 
   GameScreen({
     required this.completedPhases,
@@ -79,6 +86,7 @@ class GameScreen extends StatefulWidget {
     required this.onPhaseCompleted,
     required this.onLifeLost,
     required this.onRecoverLives,
+    required this.score,
   });
 
   @override
@@ -102,34 +110,95 @@ class _GameScreenState extends State<GameScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Image.asset('assets/logo.png', height: 100),
-            GestureDetector(
-              onTap:
-                  widget.lives == 0
-                      ? () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => MemoryGameScreen(
-                                  onCompleted: () {
-                                    widget.onRecoverLives(3);
-                                    Navigator.pop(context);
-                                    setState(() {});
-                                  },
+            Row(
+              children: [
+                GestureDetector(
+                  onTap:
+                      widget.lives == 0
+                          ? () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => MemoryGameScreen(
+                                      onCompleted: () {
+                                        widget.onRecoverLives(3);
+                                        Navigator.pop(context);
+                                        setState(() {});
+                                      },
+                                    ),
+                              ),
+                            );
+                          }
+                          : null,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration:
+                        widget.lives == 0
+                            ? BoxDecoration(
+                              color: Colors.red.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.red, width: 1),
+                            )
+                            : null,
+                    child: Row(
+                      children: [
+                        if (widget.lives == 0)
+                          Container(
+                            margin: const EdgeInsets.only(right: 6),
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black26,
+                                  blurRadius: 2,
+                                  offset: Offset(0, 1),
                                 ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.add,
+                              color: Colors.red,
+                              size: 18,
+                            ),
                           ),
-                        );
-                      }
-                      : null,
-              child: Row(
-                children: [
-                  Icon(Icons.favorite, color: Colors.red),
-                  Text(
-                    " ${widget.lives}",
-                    style: TextStyle(color: Colors.white),
+                        Icon(
+                          Icons.favorite,
+                          color:
+                              widget.lives == 0
+                                  ? Colors.red.withOpacity(0.7)
+                                  : Colors.red,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          " ${widget.lives}",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight:
+                                widget.lives == 0
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 16),
+                const Icon(Icons.star, color: Colors.amber, size: 24),
+                const SizedBox(width: 4),
+                Text(
+                  "${widget.score}",
+                  style: const TextStyle(color: Colors.white, fontSize: 18),
+                ),
+              ],
             ),
           ],
         ),
@@ -150,8 +219,8 @@ class _GameScreenState extends State<GameScreen> {
                         widget.completedPhases[index]
                             ? Colors.green
                             : Colors.grey[850],
-                    shape: CircleBorder(),
-                    padding: EdgeInsets.all(40),
+                    shape: const CircleBorder(),
+                    padding: const EdgeInsets.all(40),
                   ),
                   onPressed:
                       widget.lives > 0 &&
@@ -164,8 +233,8 @@ class _GameScreenState extends State<GameScreen> {
                                     (context) => LessonScreen(
                                       phase: index + 1,
                                       title: phaseTitles[index],
-                                      onCompleted: () {
-                                        widget.onPhaseCompleted(index);
+                                      onCompleted: (score) {
+                                        widget.onPhaseCompleted(index, score);
                                         setState(() {});
                                       },
                                       onLifeLost: () {
@@ -181,7 +250,7 @@ class _GameScreenState extends State<GameScreen> {
                           : null,
                   child: Text(
                     "${index + 1}",
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -200,11 +269,9 @@ class _GameScreenState extends State<GameScreen> {
 class LessonScreen extends StatefulWidget {
   final int phase;
   final String title;
-  final VoidCallback onCompleted;
+  final Function(int) onCompleted;
   final VoidCallback onLifeLost;
   final int Function() getLives;
-  bool showContinueButton = false;
-  String? feedbackGifPath;
 
   LessonScreen({
     required this.phase,
@@ -221,12 +288,16 @@ class LessonScreen extends StatefulWidget {
 class _LessonScreenState extends State<LessonScreen> {
   int currentQuestion = 0;
   int correctAnswers = 0;
+  int score = 0;
   late List<QuestionItem> phaseQuestions;
   bool? lastAnswerCorrect;
   bool showContinueButton = false;
   String? feedbackGifPath;
   bool isGameOver = false;
   bool hasPopped = false;
+  bool showPhaseComplete = false;
+  String? correctAnswerText;
+  final AudioPlayer audioPlayer = AudioPlayer();
 
   @override
   void initState() {
@@ -234,36 +305,62 @@ class _LessonScreenState extends State<LessonScreen> {
     phaseQuestions = getQuestionsForPhase(widget.phase);
   }
 
+  @override
+  void dispose() {
+    audioPlayer.dispose();
+    super.dispose();
+  }
+
+  void playSound(String sound) async {
+    try {
+      await audioPlayer.play(AssetSource(sound));
+    } catch (e) {
+      print('Error playing sound: $e');
+    }
+  }
+
   void answer(bool isCorrect) {
-    if (isGameOver) return;
+    if (isGameOver || showPhaseComplete) return;
 
     setState(() {
       lastAnswerCorrect = isCorrect;
       showContinueButton = true;
       feedbackGifPath = isCorrect ? 'assets/acertou.gif' : 'assets/errou.gif';
+
+      if (!isCorrect) {
+        playSound('errou.mp3');
+        int correctIndex = phaseQuestions[currentQuestion].correctAnswerIndex;
+        correctAnswerText =
+            correctIndex == 0
+                ? phaseQuestions[currentQuestion].answer1
+                : phaseQuestions[currentQuestion].answer2;
+      } else {
+        playSound('acertou.mp3');
+        correctAnswerText = null;
+        correctAnswers++;
+        score += 10;
+      }
     });
 
-    if (isCorrect) {
-      correctAnswers++;
-    } else {
-      final livesAfterLoss = widget.getLives() - 1;
+    if (!isCorrect) {
       widget.onLifeLost();
+      final livesAfterLoss = widget.getLives();
 
-      if (livesAfterLoss <= 0 && !isGameOver) {
+      if (livesAfterLoss <= 1) {
         setState(() {
           isGameOver = true;
           feedbackGifPath = 'assets/fim.gif';
           showContinueButton = false;
+          lastAnswerCorrect = null;
+          correctAnswerText = null;
         });
+        playSound('fim.mp3');
 
-        Future.delayed(Duration(seconds: 3), () {
+        Future.delayed(const Duration(seconds: 3), () {
           if (mounted && !hasPopped) {
-            hasPopped = true;
-            Navigator.pop(context);
+            Navigator.of(context).popUntil((route) => route.isFirst);
           }
         });
-
-        return;
       }
     }
   }
@@ -275,14 +372,45 @@ class _LessonScreenState extends State<LessonScreen> {
         lastAnswerCorrect = null;
         showContinueButton = false;
         feedbackGifPath = null;
+        correctAnswerText = null;
       });
     } else {
       if (correctAnswers >= 3) {
-        widget.onCompleted();
-      }
-      if (mounted && !hasPopped) {
-        hasPopped = true;
-        Navigator.pop(context);
+        setState(() {
+          showPhaseComplete = true;
+          feedbackGifPath = 'assets/woohoo.gif';
+          showContinueButton = false;
+        });
+        playSound('yay.mp3');
+
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted && !hasPopped) {
+            showDialog(
+              context: context,
+              builder:
+                  (context) => AlertDialog(
+                    title: const Text('Fase Completa!'),
+                    content: Text('Você ganhou $score pontos nesta fase!'),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          widget.onCompleted(score);
+                          hasPopped = true;
+                          Navigator.pop(context);
+                        },
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+            );
+          }
+        });
+      } else {
+        if (mounted && !hasPopped) {
+          hasPopped = true;
+          Navigator.pop(context);
+        }
       }
     }
   }
@@ -295,159 +423,240 @@ class _LessonScreenState extends State<LessonScreen> {
       appBar: AppBar(
         title: Text(widget.title),
         backgroundColor: Colors.purple,
-        leading: BackButton(),
+        leading: const BackButton(),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: Row(
               children: [
-                Icon(Icons.favorite, color: Colors.red),
-                SizedBox(width: 4),
+                const Icon(Icons.favorite, color: Colors.red),
+                const SizedBox(width: 4),
                 Text(
                   "$currentLives",
-                  style: TextStyle(color: Colors.white, fontSize: 20),
+                  style: const TextStyle(color: Colors.white, fontSize: 20),
+                ),
+                const SizedBox(width: 16),
+                const Icon(Icons.star, color: Colors.amber),
+                const SizedBox(width: 4),
+                Text(
+                  "$score",
+                  style: const TextStyle(color: Colors.white, fontSize: 20),
                 ),
               ],
             ),
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            child: Center(
-              child:
-                  feedbackGifPath != null
-                      ? Stack(
-                        children: [
-                          Opacity(
-                            opacity:
-                                feedbackGifPath == 'assets/logo.gif'
-                                    ? 1.0
-                                    : 0.3,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  phaseQuestions[currentQuestion].question,
-                                  style: TextStyle(fontSize: 24),
-                                  textAlign: TextAlign.center,
-                                ),
-                                SizedBox(height: 16),
-                                Image.asset(
-                                  phaseQuestions[currentQuestion].imageAsset,
-                                  height: 200,
-                                ),
-                              ],
-                            ),
-                          ),
-                          Center(
-                            child: Image.asset(
-                              feedbackGifPath!,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                        ],
-                      )
-                      : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            phaseQuestions[currentQuestion].question,
-                            style: TextStyle(fontSize: 24),
-                            textAlign: TextAlign.center,
-                          ),
-                          SizedBox(height: 16),
-                          Image.asset(
-                            phaseQuestions[currentQuestion].imageAsset,
-                            height: 200,
-                          ),
-                          SizedBox(height: 24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          Column(
+            children: [
+              Expanded(
+                child: Center(
+                  child:
+                      showPhaseComplete
+                          ? Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8.0,
-                                  ),
-                                  child: ElevatedButton(
-                                    onPressed:
-                                        showContinueButton || isGameOver
-                                            ? null
-                                            : () => answer(
-                                              phaseQuestions[currentQuestion]
-                                                      .correctAnswerIndex ==
-                                                  0,
-                                            ),
-                                    child: Text(
-                                      phaseQuestions[currentQuestion].answer1,
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      minimumSize: Size(double.infinity, 60),
-                                    ),
-                                  ),
+                              const Text(
+                                'Fase Completa!',
+                                style: TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green,
                                 ),
                               ),
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8.0,
-                                  ),
-                                  child: ElevatedButton(
-                                    onPressed:
-                                        showContinueButton || isGameOver
-                                            ? null
-                                            : () => answer(
-                                              phaseQuestions[currentQuestion]
-                                                      .correctAnswerIndex ==
-                                                  1,
-                                            ),
-                                    child: Text(
-                                      phaseQuestions[currentQuestion].answer2,
+                              const SizedBox(height: 20),
+                              Image.asset(
+                                'assets/woohoo.gif',
+                                height: 500,
+                                fit: BoxFit.contain,
+                              ),
+                            ],
+                          )
+                          : feedbackGifPath != null && !isGameOver
+                          ? Stack(
+                            children: [
+                              Opacity(
+                                opacity: 0.3,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      phaseQuestions[currentQuestion].question,
+                                      style: const TextStyle(fontSize: 24),
+                                      textAlign: TextAlign.center,
                                     ),
-                                    style: ElevatedButton.styleFrom(
-                                      minimumSize: Size(double.infinity, 60),
+                                    const SizedBox(height: 16),
+                                    Image.asset(
+                                      phaseQuestions[currentQuestion]
+                                          .imageAsset,
+                                      height: 200,
                                     ),
-                                  ),
+                                  ],
+                                ),
+                              ),
+                              Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Image.asset(
+                                      feedbackGifPath!,
+                                      fit: BoxFit.contain,
+                                    ),
+                                    if (!lastAnswerCorrect! &&
+                                        correctAnswerText != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 24.0,
+                                        ),
+                                        child: Text(
+                                          'Resposta correta: $correctAnswerText',
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.green,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                             ],
+                          )
+                          : isGameOver
+                          ? Container()
+                          : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                phaseQuestions[currentQuestion].question,
+                                style: const TextStyle(fontSize: 24),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              Image.asset(
+                                phaseQuestions[currentQuestion].imageAsset,
+                                height: 200,
+                              ),
+                              const SizedBox(height: 24),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8.0,
+                                      ),
+                                      child: ElevatedButton(
+                                        onPressed:
+                                            showContinueButton ||
+                                                    isGameOver ||
+                                                    showPhaseComplete
+                                                ? null
+                                                : () => answer(
+                                                  phaseQuestions[currentQuestion]
+                                                          .correctAnswerIndex ==
+                                                      0,
+                                                ),
+                                        child: Text(
+                                          phaseQuestions[currentQuestion]
+                                              .answer1,
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          minimumSize: const Size(
+                                            double.infinity,
+                                            60,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8.0,
+                                      ),
+                                      child: ElevatedButton(
+                                        onPressed:
+                                            showContinueButton ||
+                                                    isGameOver ||
+                                                    showPhaseComplete
+                                                ? null
+                                                : () => answer(
+                                                  phaseQuestions[currentQuestion]
+                                                          .correctAnswerIndex ==
+                                                      1,
+                                                ),
+                                        child: Text(
+                                          phaseQuestions[currentQuestion]
+                                              .answer2,
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          minimumSize: const Size(
+                                            double.infinity,
+                                            60,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-            ),
-          ),
-          if (isGameOver)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 32.0),
-              child: Text(
-                'Game Over',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.red,
                 ),
               ),
-            ),
-          if (showContinueButton && !isGameOver)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: ElevatedButton(
-                onPressed: continueToNextQuestion,
-                child: Text(
-                  'Continuar',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+              if (showContinueButton && !isGameOver && !showPhaseComplete)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: ElevatedButton(
+                    onPressed: continueToNextQuestion,
+                    child: const Text(
+                      'Continuar',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          lastAnswerCorrect! ? Colors.green : Colors.red,
+                      minimumSize: const Size(400, 70),
+                    ),
                   ),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      lastAnswerCorrect! ? Colors.green : Colors.red,
-                  minimumSize: Size(400, 70),
-                ),
+            ],
+          ),
+          if (isGameOver)
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (feedbackGifPath != null)
+                    Image.asset(
+                      feedbackGifPath!,
+                      height: 300,
+                      fit: BoxFit.contain,
+                    ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Game Over',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Você perdeu todas as vidas!',
+                    style: TextStyle(fontSize: 20),
+                  ),
+                ],
               ),
             ),
         ],
@@ -675,24 +884,82 @@ List<QuestionItem> getQuestionsForPhase(int phase) {
           correctAnswerIndex: 1,
         ),
       ];
-    case 3:
+    case 4:
       return [
         QuestionItem(
-          question: "Qual é o oposto de quente?",
-          imageAsset: 'assets/fase3/frio.png',
-          answer1: "Frio",
-          answer2: "Morno",
+          question: "No café da manhã, eu sempre tomo um copo de ______.",
+          imageAsset: 'assets/fase 3/leite.png',
+          answer1: "leite",
+          answer2: "uisque",
           correctAnswerIndex: 0,
         ),
         QuestionItem(
-          question: "O que usamos para ver melhor?",
-          imageAsset: 'assets/fase3/oculos.png',
-          answer1: "Chapéu",
-          answer2: "Óculos",
+          question:
+              "Depois do almoço, eu gosto de relaxar com um ______ bem quente.",
+          imageAsset: 'assets/fase 3/cha.png',
+          answer1: "chá",
+          answer2: "vinho",
+          correctAnswerIndex: 0,
+        ),
+        QuestionItem(
+          question: "Nos dias mais quentes, nada melhor que uma ______ gelada.",
+          imageAsset: 'assets/fase 3/cerveja.png',
+          answer1: "chá",
+          answer2: "cerveja",
           correctAnswerIndex: 1,
         ),
+        QuestionItem(
+          question: "Na festa, ele pediu um copo de ______ com gelo.",
+          imageAsset: 'assets/fase 3/uisque.png',
+          answer1: "leite",
+          answer2: "uisque",
+          correctAnswerIndex: 1,
+        ),
+        QuestionItem(
+          question: "Nos dias mais quentes, nada melhor que uma ______ gelada.",
+          imageAsset: 'assets/fase 3/cerveja.png',
+          answer1: "chá",
+          answer2: "cerveja",
+          correctAnswerIndex: 1,
+        ),
+        QuestionItem(
+          question: "Ela prefere ______ em vez de coca.",
+          imageAsset: 'assets/fase 3/guarana.png',
+          answer1: "guarana",
+          answer2: "cafe",
+          correctAnswerIndex: 0,
+        ),
+        QuestionItem(
+          question: "Vamos tomar um ______ depois do trabalho?",
+          imageAsset: 'assets/fase 3/cafe.png',
+          answer1: "cafe",
+          answer2: "uisque",
+          correctAnswerIndex: 0,
+        ),
+        QuestionItem(
+          question: "Eles brindaram com uma taça de ______.",
+          imageAsset: 'assets/fase 3/vinho.png',
+          answer1: "leite",
+          answer2: "vinho",
+          correctAnswerIndex: 1,
+        ),
+        QuestionItem(
+          question: "Eles brindaram com uma taça de ______.",
+          imageAsset: 'assets/fase 3/vinho.png',
+          answer1: "leite",
+          answer2: "vinho",
+          correctAnswerIndex: 1,
+        ),
+        QuestionItem(
+          question:
+              "Ele encheu o copo com ______ e acrescentou uma rodela de limão.",
+          imageAsset: 'assets/fase 3/coca.png',
+          answer1: "coca",
+          answer2: "vinho",
+          correctAnswerIndex: 0,
+        ),
       ];
-    case 4:
+    case 5:
       return [
         QuestionItem(
           question: "Quantas pernas tem um cachorro?",
@@ -709,7 +976,7 @@ List<QuestionItem> getQuestionsForPhase(int phase) {
           correctAnswerIndex: 1,
         ),
       ];
-    case 5:
+    case 6:
       return [
         QuestionItem(
           question: "Qual é o nome do planeta em que vivemos?",
@@ -718,15 +985,8 @@ List<QuestionItem> getQuestionsForPhase(int phase) {
           answer2: "Marte",
           correctAnswerIndex: 0,
         ),
-        QuestionItem(
-          question: "Qual é a cor do céu em um dia claro?",
-          imageAsset: 'assets/fase5/ceu.png',
-          answer1: "Azul",
-          answer2: "Vermelho",
-          correctAnswerIndex: 0,
-        ),
       ];
-    case 6:
+    case 7:
       return [
         QuestionItem(
           question: "O que usamos para cortar papel?",
@@ -743,7 +1003,7 @@ List<QuestionItem> getQuestionsForPhase(int phase) {
           correctAnswerIndex: 0,
         ),
       ];
-    case 7:
+    case 8:
       return [
         QuestionItem(
           question: "O que usamos para beber água?",
@@ -760,7 +1020,7 @@ List<QuestionItem> getQuestionsForPhase(int phase) {
           correctAnswerIndex: 0,
         ),
       ];
-    case 8:
+    case 9:
       return [
         QuestionItem(
           question: "Qual animal tem uma longa tromba?",
@@ -777,7 +1037,7 @@ List<QuestionItem> getQuestionsForPhase(int phase) {
           correctAnswerIndex: 0,
         ),
       ];
-    case 9:
+    case 10:
       return [
         QuestionItem(
           question: "O que usamos para escovar os dentes?",
@@ -791,23 +1051,6 @@ List<QuestionItem> getQuestionsForPhase(int phase) {
           imageAsset: 'assets/fase9/ouvido.png',
           answer1: "Olhos",
           answer2: "Ouvidos",
-          correctAnswerIndex: 1,
-        ),
-      ];
-    case 10:
-      return [
-        QuestionItem(
-          question: "Qual o nome do satélite natural da Terra?",
-          imageAsset: 'assets/fase10/lua.png',
-          answer1: "Lua",
-          answer2: "Sol",
-          correctAnswerIndex: 0,
-        ),
-        QuestionItem(
-          question: "Qual é o maior órgão do corpo humano?",
-          imageAsset: 'assets/fase10/pele.png',
-          answer1: "Fígado",
-          answer2: "Pele",
           correctAnswerIndex: 1,
         ),
       ];
